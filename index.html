@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>プラキンBTお供なし調整</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+:root{
+ --pk2-color:#f7b977;
+ --pk2-border:#fbd39e;
+ --pk3-color:#E5E4E2;
+ --pk3-border:#cbd5e1;
+ --pk-ink:#0f172a;
+}
+*{box-sizing:border-box}
+body{background:#020617;color:#e2e8f0;font-family:Arial,sans-serif}
+button,input{font:inherit}
+button{cursor:pointer}
+.card{background:#0f172a;border:1px solid #334155;border-radius:9px;padding:10px}
+.btn{padding:7px 12px;border-radius:6px;background:#334155;color:white;font-size:12px}
+.btn:hover{filter:brightness(1.2)}
+.blue{background:#2563eb}
+.green{background:#047857}
+.amber{background:#b45309}
+.purple{background:#6d28d9}
+.rose{background:#be123c}
+input[type=text],input[type=number]{background:#020617;border:1px solid #475569;border-radius:6px;padding:7px;color:#ffffff}
+input[type=text].seed-input{width:140px;font-family:monospace}
+input[type=text].pattern-input{width:190px;font-family:monospace}
+input[type=number]{width:84px}
+
+.rng-grid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:3px}
+.rng-cell{
+ min-height:48px;
+ height:50px;
+ min-width:0;
+ background:#0f172a;
+ border:1px solid #334155;
+ border-radius:4px;
+ padding:2px 4px;
+ display:flex;
+ flex-direction:column;
+ justify-content:space-between;
+ align-items:stretch;
+ cursor:pointer;
+ overflow:hidden;
+}
+.rng-cell:hover{filter:brightness(1.45)}
+.cell-current{background:#1d4ed8!important;border:2px solid #facc15!important;box-shadow:inset 0 0 8px #60a5fa80;color:#ffffff!important}
+.cell-current .cell-index,.cell-current .cell-pct,.cell-current .cell-enemy,.cell-current .cell-comp{color:#ffffff!important}
+.cell-success{background:#064e3b}
+.cell-fail{background:#450a0a}
+.cell-2g-pk2{background:var(--pk2-color);border-color:var(--pk2-border);color:var(--pk-ink)}
+.cell-2g-pk2 .cell-index,.cell-2g-pk2 .cell-pct,.cell-2g-pk2 .cell-enemy,.cell-2g-pk2 .cell-comp{color:var(--pk-ink)}
+.cell-2g-pk3{background:var(--pk3-color);border-color:var(--pk3-border);color:var(--pk-ink)}
+.cell-2g-pk3 .cell-index,.cell-2g-pk3 .cell-pct,.cell-2g-pk3 .cell-enemy,.cell-2g-pk3 .cell-comp{color:var(--pk-ink)}
+.pk2-text{color:var(--pk2-color)}
+.pk3-text{color:var(--pk3-color)}
+.pk2-badge{background:var(--pk2-color);color:var(--pk-ink)}
+.pk3-badge{background:var(--pk3-color);color:var(--pk-ink)}
+button:disabled{opacity:0.38!important;cursor:not-allowed!important;filter:grayscale(0.75)!important}
+
+.cell-top{display:flex;justify-content:space-between;align-items:center;line-height:1}
+.cell-index{font-size:9px;color:#cbd5e1}
+.cell-comp{font-size:10px;font-weight:bold}
+.cell-center{
+ display:flex;
+ justify-content:center;
+ align-items:center;
+ flex:1;
+ line-height:1;
+}
+.cell-pct{
+ font-family:monospace;
+ font-size:13px;
+ font-weight:bold;
+ color:#f8fafc;
+ letter-spacing:-0.02em;
+}
+.cell-bottom{display:flex;justify-content:flex-end;align-items:center;line-height:1}
+.cell-enemy{font-size:10px;font-weight:bold;color:#cbd5e1}
+
+.hoimi-card{border:1px solid #475569;border-radius:8px;padding:9px;cursor:pointer;text-align:left;background:#020617;width:100%;min-width:0}
+.hoimi-card:hover{border-color:#38bdf8;background:#0c263c}
+.hoimi-number{font-size:23px;font-weight:bold;font-family:monospace}
+#gridContainer{max-height:60vh;overflow-y:auto;position:relative;scroll-behavior:auto}
+#rngGrid{padding-bottom:52vh}
+
+@media(max-width:640px){
+ .rng-grid{gap:2px}
+ .rng-cell{min-height:44px;height:46px;padding:2px;border-radius:3px}
+ .cell-index{font-size:8px}
+ .cell-pct{font-size:11px}
+ .cell-enemy{font-size:9px}
+ .cell-comp{font-size:9px}
+ input[type=text].pattern-input{width:155px}
+}
+</style>
+</head>
+<body>
+
+<header class="sticky top-0 z-20 bg-slate-900 border-b border-slate-700 p-2">
+ <div class="flex flex-wrap justify-between items-center gap-2">
+  <div>
+   <b class="text-sm">DQ9 プラキンBTお供なし調整</b>
+   <div class="text-[10px] text-slate-400"></div>
+  </div>
+  <span id="toast" class="text-xs text-emerald-300"></span>
+ </div>
+</header>
+
+<main class="max-w-7xl mx-auto p-2 space-y-2">
+
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-2">
+
+<!-- シード・パーティ設定 -->
+<div class="card space-y-3">
+ <b class="text-xs">シード・パーティ設定</b>
+ <div class="flex flex-wrap items-end gap-3">
+  <div>
+   <label class="text-xs block mb-1">初期シード（16進数のみ）</label>
+   <div class="flex gap-1">
+    <input id="seedInput" type="text" class="seed-input bg-slate-950 text-white" value="12345" autocomplete="off">
+    <button class="btn blue" id="resetBtn">計算・リセット</button>
+   </div>
+  </div>
+  <div>
+   <label class="text-xs block mb-1">PT人数</label>
+   <div class="flex gap-1">
+    <button class="btn pt blue" data-pt="1">1</button>
+    <button class="btn pt" data-pt="2">2</button>
+    <button class="btn pt" data-pt="3">3</button>
+    <button class="btn pt" data-pt="4">4</button>
+   </div>
+  </div>
+ </div>
+ <p class="text-[10px] text-slate-400">
+  
+ </p>
+</div>
+
+<!-- 現在位置 n の判定 -->
+<div class="card space-y-2">
+ <div class="flex flex-wrap justify-between items-center gap-2">
+  <b class="text-xs">現在位置 n の判定</b>
+ </div>
+
+ <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+  <div class="bg-blue-950 p-2 rounded min-w-0">
+   <div class="text-[10px] text-blue-300 truncate">現在位置 (1F)</div>
+   <b id="curDisplay" class="block text-lg sm:text-xl font-mono leading-tight whitespace-nowrap truncate">-</b>
+   <div id="curPct" class="text-xs truncate">-</div>
+  </div>
+  <div class="bg-purple-950 p-2 rounded min-w-0">
+   <div class="text-[10px] text-purple-300 truncate">1G敵数</div>
+   <b id="enemyDisplay" class="block text-lg sm:text-xl leading-tight whitespace-nowrap truncate">1体</b>
+   <div id="enemyPct" class="text-xs truncate">-</div>
+  </div>
+  <div class="bg-emerald-950 p-2 rounded min-w-0">
+   <div class="text-[10px] text-emerald-300 truncate">2Fお供判定</div>
+   <b id="companionDisplay" class="block text-lg sm:text-xl leading-tight whitespace-nowrap truncate">-</b>
+   <div id="companionValue" class="text-xs truncate">-</div>
+  </div>
+  <div class="bg-cyan-950 p-2 rounded min-w-0">
+   <div class="text-[10px] text-cyan-300 truncate">グループ判定移動数</div>
+   <b id="moveDisplay" class="block text-lg sm:text-xl leading-tight whitespace-nowrap truncate">3マス</b>
+   <div id="moveSubLabel" class="text-xs truncate">1Gのみ</div>
+  </div>
+ </div>
+
+ <div class="text-xs text-slate-300 hidden" id="detail2GInfo"></div>
+</div>
+</section>
+
+<!-- パーセント整数部の偶奇検索 -->
+<section class="card space-y-2">
+ <div class="flex flex-wrap items-end justify-between gap-2">
+  <div class="space-y-1">
+   <label for="parityInput" class="text-xs font-bold block">
+    パーセント整数部の偶奇検索（一致開始位置＋入力文字数分先へ移動・大文字/小文字/全角OK）
+   </label>
+   <div class="text-[11px] text-slate-300 space-y-0.5">
+    <div>
+     【使える文字（半角・全角、大文字・小文字すべて対応）】
+     奇数：<b>o / s / k / x / 1 / 3 / 5 / 7 / 9</b>　｜　
+     偶数：<b>e / u / g / y / c /  0 / 2 / 4 / 6 / 8</b>（※0は偶数）
+    </div>
+    <div>
+     戦闘中しらべるでこうげきに そなえている=奇数 こちらのようす をうかがっている=偶数 紛らわしいですがアルファベットのoが奇数(ODD)と数字の0は偶数(EVEN)です 先制時や敵にバフなどがある場合は防御などで次ターンへ
+    </div>
+   </div>
+   <div class="flex flex-wrap items-center gap-1.5 pt-1">
+    <input id="parityInput" type="text" class="pattern-input" maxlength="30" placeholder="例: oeee / 2332" autocomplete="off">
+    <button id="paritySearchBtn" class="btn blue">近い候補へ移動</button>
+    <button id="parityNextBtn" class="btn">次の近い候補</button>
+    <button id="parityClearBtn" class="btn">クリア</button>
+    <button type="button" id="appendSonaeruBtn" class="btn">そなえる(s)</button>
+    <button type="button" id="appendUkagauBtn" class="btn">うかがう(u)</button>
+   </div>
+  </div>
+  <div id="parityResult" class="text-xs text-sky-300 max-w-xl"></div>
+ </div>
+</section>
+
+<!-- ホイミ回数 -->
+<section class="card space-y-2">
+ <div class="flex flex-wrap items-center justify-between gap-2">
+  <b class="text-xs">ホイミ回数（クリックするとその回数だけ移動）</b>
+  <label class="inline-flex items-center gap-1.5 text-xs text-slate-200 cursor-pointer select-none bg-slate-800 border border-slate-600 rounded px-2 py-1">
+   <input id="shortcutToggle" type="checkbox" class="accent-blue-500">
+   <span>ショートカットキー有効</span>
+   <span id="shortcutHint" class="text-[10px] text-slate-400">（OFF）</span>
+  </label>
+ </div>
+
+ <!-- 上段：最短ホイミ・偶数ホイミ -->
+ <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+  <button class="hoimi-card" id="normalCard" disabled>
+   <div class="text-xs text-emerald-300 flex justify-between items-center"><span>最短ホイミ回数（1Gお供なし）</span><span class="shortcut-badge hidden text-[10px] font-mono bg-slate-800 border border-slate-600 px-1.5 py-0.5 rounded text-slate-200">[H / F]</span></div>
+   <div class="hoimi-number text-emerald-300" id="normalHoimi">-</div>
+   <div class="text-[10px] text-slate-400" id="normalTarget">-</div>
+   <div class="text-[10px] text-sky-300 mt-1">クリックして移動 →</div>
+  </button>
+
+  <button class="hoimi-card" id="evenCard" disabled>
+   <div class="text-xs text-purple-300 flex justify-between items-center"><span>ホイミ偶数回（1Gお供なし）</span><span class="shortcut-badge hidden text-[10px] font-mono bg-slate-800 border border-slate-600 px-1.5 py-0.5 rounded text-slate-200">[G]</span></div>
+   <div class="hoimi-number text-purple-300" id="evenHoimi">-</div>
+   <div class="text-[10px] text-slate-400" id="evenTarget">-</div>
+   <div class="text-[10px] text-sky-300 mt-1">クリックして移動 →</div>
+  </button>
+ </div>
+
+ <!-- 中段：しぐさ実行・判定分進むボタン -->
+ <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+  <button id="emoteBtn" class="btn amber w-full font-bold py-2.5 px-3 text-sm">
+   しぐさ実行 ＋3マス
+  </button>
+  <button id="advanceBtn" class="btn green w-full font-bold py-2.5 px-3 text-sm">
+   判定分進む（＋3マス）
+  </button>
+ </div>
+
+ <!-- 下段：プラキン2・プラキン3 -->
+ <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+  <button class="hoimi-card" id="twoG2PkCard" disabled>
+   <div class="text-xs flex justify-between items-center pk2-text"><span>プラキン2（1G:1体 + 2G:1体 / 3G除外）</span><span class="shortcut-badge hidden text-[10px] font-mono bg-slate-800 border border-slate-600 px-1.5 py-0.5 rounded text-slate-200">[D]</span></div>
+   <div class="hoimi-number pk2-text" id="twoG2PkHoimi">-</div>
+   <div class="text-[10px] text-slate-400" id="twoG2PkTarget">-</div>
+   <div class="text-[10px] text-sky-300 mt-1">クリックして移動 →</div>
+  </button>
+
+  <button class="hoimi-card" id="twoG3PkCard" disabled>
+   <div class="text-xs flex justify-between items-center pk3-text"><span>プラキン3（1G:1体 + 2G:2体 / 3G除外）</span><span class="shortcut-badge hidden text-[10px] font-mono bg-slate-800 border border-slate-600 px-1.5 py-0.5 rounded text-slate-200">[T]</span></div>
+   <div class="hoimi-number pk3-text" id="twoG3PkHoimi">-</div>
+   <div class="text-[10px] text-slate-400" id="twoG3PkTarget">-</div>
+   <div class="text-[10px] text-sky-300 mt-1">クリックして移動 →</div>
+  </button>
+ </div>
+
+ <p class="text-[10px] text-slate-400">
+  しぐさは戦闘時にしぐさが表示された場合押してください。しぐさと出現判定（1G:3マス / 2G(1体):6マス / 2G(3体):7マス）を合計したマス分移動します。
+  よくわからない場合はPTを主人公のみにしてください（棺桶不可）。各カードをクリックすると表示されたホイミ回数分だけ移動します。
+ </p>
+</section>
+
+<!-- 移動・表示拡張・列消去コントロールバー -->
+<section class="card space-y-2">
+ <div class="flex flex-wrap items-center justify-between gap-2">
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+   <div class="flex flex-wrap items-center gap-1">
+    <span class="text-xs text-slate-400">移動：</span>
+    <button class="btn" data-step="-10">↑ -10</button>
+    <button class="btn" data-step="-1">← -1</button>
+    <button class="btn blue" data-step="1">→ +1</button>
+    <button class="btn blue" data-step="10">↓ +10</button>
+    <button class="btn purple" data-step="2">+2</button>
+    <button class="btn purple" data-step="4">+4</button>
+    <button class="btn purple" data-step="8">+8</button>
+    <span class="mx-1 text-slate-600">|</span>
+    <input id="jumpInput" type="number" min="1" max="100000" value="1" aria-label="移動先n">
+    <button id="jumpBtn" class="btn">指定へ</button>
+    <button id="scrollCurrent" class="btn">現在位置へ</button>
+   </div>
+
+   <div class="flex flex-wrap items-center gap-1">
+    <span class="text-xs text-slate-400">表示拡張：</span>
+    <button class="btn expand-step" data-expand="200">+200</button>
+    <button class="btn expand-step" data-expand="500">+500</button>
+    <button class="btn expand-step" data-expand="1000">+1000</button>
+   </div>
+  </div>
+ </div>
+
+ <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-700 pt-2 text-xs">
+  <div class="flex flex-wrap items-center gap-2">
+   <button id="pruneUsedRowsBtn" class="btn rose">
+    過ぎた列を消去
+   </button>
+   <span id="prunedInfo" class="text-[11px] text-slate-400"></span>
+  </div>
+  <div class="flex flex-wrap items-center gap-3">
+   <span id="expandNote" class="text-[11px] text-slate-400">
+    ※移動先から200マス先まで足りなければ200マス先まで自動展開します。
+   </span>
+   <span id="emoteDescription" class="text-[11px] text-slate-400">
+    しぐさ消費＋判定移動を合計して移動します。
+   </span>
+   <span id="countDisplay" class="text-xs text-slate-400"></span>
+  </div>
+ </div>
+</section>
+
+<!-- 乱数表 -->
+<section class="card">
+ <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+  <div class="flex flex-wrap items-center gap-3">
+   <b class="text-xs">乱数表（1行10マス・初期200マス / 最大10000マス）</b>
+   <div class="flex flex-wrap items-center gap-2.5 text-[11px]">
+    <span class="text-blue-300">青（黄枠）：現在選択中のマスのみ</span>
+    <span class="text-emerald-400">緑背景：1Gお供なし</span>
+    <span class="px-1.5 py-0.5 rounded font-bold pk2-badge">プラキン2色背景：2Gプラキン計2体</span>
+    <span class="px-1.5 py-0.5 rounded font-bold pk3-badge">プラキン3色背景：2Gプラキン計3体</span>
+    <span class="text-rose-400">赤背景：その他（2G非プラキン/3G）</span>
+   </div>
+  </div>
+  <span class="text-[10px] text-slate-400">マスクリックで現在位置を変更　矢印キーでも移動可能</span>
+ </div>
+ <div id="gridContainer">
+  <div id="rngGrid" class="rng-grid"></div>
+ </div>
+</section>
+</main>
+
+<script>
+(()=>{
+"use strict";
+
+const MULT=0x5d588b656c078965n;
+const INC=0x269ec3n;
+const MASK=0xffffffffffffffffn;
+const MAX32_DIV=4294967296;
+const MAX32_DISP=4294967295;
+const INITIAL_MAX=200;
+const MAX_INDEX=100000;
+const MAX_DISPLAY_CELLS=10000;
+const ROW_SIZE=10;
+const HOIMI_SEARCH_LIMIT=5000;
+const rootStyles=getComputedStyle(document.documentElement);
+const COLOR_PK2=rootStyles.getPropertyValue("--pk2-color").trim();
+const COLOR_PK3=rootStyles.getPropertyValue("--pk3-color").trim();
+
+let rng=[];
+let prunedStartIdx=1;
+let seed=0x12345n;
+let cur=1;
+let max=INITIAL_MAX;
+let pt=1;
+let matchedPositions=[];
+let matchCursor=0;
+
+const $=id=>document.getElementById(id);
+
+function notify(s,isError=false){
+ const el=$("toast");
+ el.textContent=s;
+ el.className=isError?"text-xs text-rose-400":"text-xs text-emerald-300";
+}
+
+function parseHexSeed(s){
+ s=s.trim();
+ if(!s)throw Error("初期シード（16進数）を入力してください");
+ if(/^0x[0-9a-f]+$/i.test(s))return BigInt(s)&MASK;
+ if(/^[0-9a-f]+$/i.test(s))return BigInt("0x"+s)&MASK;
+ throw Error("16進数（0-9, a-f）のみ入力できます");
+}
+
+function nextState(prev){
+ return (prev*MULT+INC)&MASK;
+}
+
+function makeEntry(index,value){
+ const upper=Number(value>>32n);
+ const pct=upper*100/MAX32_DISP;
+ const intPart=Math.floor(pct);
+ return {index,value,upper,pct,intPart};
+}
+
+function computeEntryStandalone(n){
+ if(n<1||n>MAX_INDEX)return null;
+ if(n>=prunedStartIdx&&n<=max&&rng[n-prunedStartIdx]){
+  return rng[n-prunedStartIdx];
+ }
+ let state;
+ let startIdx;
+ if(rng.length>0&&n>max){
+  state=rng[rng.length-1].value;
+  startIdx=max+1;
+ }else{
+  state=seed;
+  startIdx=1;
+ }
+ for(let i=startIdx;i<=n;i++){
+  state=nextState(state);
+  if(i===n)return makeEntry(i,state);
+ }
+ return null;
+}
+
+function updateCountDisplay(){
+ $("countDisplay").textContent=`表示: ${prunedStartIdx}〜${max}マス（同時表示上限${MAX_DISPLAY_CELLS}）`;
+ if(prunedStartIdx>1){
+  const clearedRows=Math.floor((prunedStartIdx-1)/ROW_SIZE);
+  $("prunedInfo").textContent=`（${clearedRows}列 / 1〜${prunedStartIdx-1}マス消去・解放済み）`;
+ }else{
+  $("prunedInfo").textContent="";
+ }
+}
+
+function rebuildFrom(newStart){
+ let state=seed;
+ for(let i=1;i<newStart;i++){
+  state=nextState(state);
+ }
+ const oldEnd=Math.min(MAX_INDEX,Math.max(max,newStart));
+ rng=[];
+ prunedStartIdx=newStart;
+ for(let i=newStart;i<=oldEnd;i++){
+  state=nextState(state);
+  rng.push(makeEntry(i,state));
+ }
+ max=prunedStartIdx+rng.length-1;
+}
+
+function generate(target){
+ const displayLimit=Math.min(MAX_INDEX,prunedStartIdx+MAX_DISPLAY_CELLS-1);
+ target=Math.min(displayLimit,Math.max(prunedStartIdx,target));
+ if(rng.length===0){
+  let state=seed;
+  for(let i=1;i<=prunedStartIdx;i++){
+   state=nextState(state);
+  }
+  rng.push(makeEntry(prunedStartIdx,state));
+ }
+
+ let lastIndex=prunedStartIdx+rng.length-1;
+ while(lastIndex<target){
+  const prev=rng[rng.length-1].value;
+  lastIndex++;
+  rng.push(makeEntry(lastIndex,nextState(prev)));
+ }
+ max=lastIndex;
+ updateCountDisplay();
+}
+
+function entry(n){
+ if(n<1||n>MAX_INDEX)return null;
+ if(n>=prunedStartIdx&&n<=max){
+  return rng[n-prunedStartIdx];
+ }
+ return computeEntryStandalone(n);
+}
+
+function enemyCount(n){
+ const item=entry(n);
+ if(!item)return null;
+ return 1;
+}
+
+function evaluateGroup2F(item){
+ const roll0=Math.floor(item.upper*12/MAX32_DIV);
+ const dispVal=roll0+1;
+ let groupCount=1;
+ if(roll0>=11)groupCount=3;
+ else if(roll0>=7)groupCount=2;
+ return {roll0,dispVal,groupCount,isOneGroup:groupCount===1,isTwoGroupOnly:groupCount===2};
+}
+
+function companion(n){
+ const item=entry(n+1);
+ if(!item)return null;
+ const g=evaluateGroup2F(item);
+ return {value:g.dispVal,groupCount:g.groupCount,success:g.isOneGroup,isTwoGroupOnly:g.isTwoGroupOnly};
+}
+
+// 判定分進む：1G => 3マス / 2Gで合計2体 => 6マス / 2Gで合計3体 => 7マス（プラキン出現マスは 8 にならないよう保護）
+function battleStepCount(n){
+ const comp=companion(n);
+ if(!comp||comp.isOneGroup)return 3;
+ if(comp.isTwoGroupOnly){
+  const info2G=getTwoGroupPkInfo(n);
+  if(info2G&&info2G.totalPk===3)return 7;
+  return 6;
+ }
+ if(isOneGroupPk(n))return 3;
+ return 8;
+}
+
+// 2G時の合計プラキン数（1G:1体 + 2G:1..2体 = 計2体 or 計3体）を2G判定成立時に算出
+function getTwoGroupPkInfo(pos){
+ const f2=entry(pos+1);
+ const f3=entry(pos+2);
+ const f4=entry(pos+3);
+ if(!f2||!f3||!f4)return null;
+
+ const grp=evaluateGroup2F(f2);
+ if(!grp.isTwoGroupOnly)return null;
+
+ const kindRoll=Math.floor(f3.upper*27/MAX32_DIV);
+ const isPk2G=(kindRoll===14);
+ const countAdd=Math.floor(f4.upper*2/MAX32_DIV); // 0 or 1
+ const g2Count=1+countAdd; // 1 or 2
+ const totalPk=1+g2Count; // 2 or 3
+
+ return {
+  groupRoll:grp.dispVal,
+  kindPct:f3.pct,
+  countPct:f4.pct,
+  isPk2G,
+  g2Count,
+  totalPk
+ };
+}
+
+// 1F(pos) でプラキンが出現するかどうか（出現率 1/27 = kindRoll 14 に相当）
+function isOneGroupPk(pos){
+ const f1=entry(pos);
+ if(!f1)return false;
+ const kindRoll=Math.floor(f1.upper*27/MAX32_DIV);
+ return kindRoll===14;
+}
+
+function evaluateTwoGroupPk(pos){
+ const info=getTwoGroupPkInfo(pos);
+ if(!info||!info.isPk2G)return null;
+ return info;
+}
+
+// 該当マス pos で操作可能かどうか（1Gお供なしは常時有効、またはプラキン出現マスで有効）
+function isPkSpawnPos(pos){
+ if(isShortestHoimiMatchPos(pos)){
+  return true;
+ }
+ const comp=companion(pos);
+ if(comp&&comp.isOneGroup){
+  return true;
+ }
+ if(comp&&comp.isTwoGroupOnly){
+  return evaluateTwoGroupPk(pos)!==null;
+ }
+ return false;
+}
+
+function findTwoGroupPkTotal(base,targetTotalPk){
+ for(let h=0;h<=HOIMI_SEARCH_LIMIT;h++){
+  const pos=base+h;
+  if(pos+3>MAX_INDEX)break;
+  const res=evaluateTwoGroupPk(pos);
+  if(res&&res.totalPk===targetTotalPk){
+   return {
+    count:h,
+    base:pos,
+    f2Idx:pos+1,
+    f3Idx:pos+2,
+    f4Idx:pos+3,
+    ...res
+   };
+  }
+ }
+ return null;
+}
+
+function findHoimi(base,mode){
+ for(let h=0;h<=HOIMI_SEARCH_LIMIT;h++){
+  const pos=base+h;
+  if(pos+1>MAX_INDEX)break;
+
+  const comp=companion(pos);
+  if(!comp||!comp.success)continue;
+
+  if(mode==="even"&&h%2!==0)continue;
+
+  return {count:h,base:pos,judge:pos+1};
+ }
+ return null;
+}
+
+// 現在のマス cur が「最短ホイミ回数（1Gお供なし）での判定にそうマス」かどうか
+function isShortestHoimiMatchPos(pos){
+ const nearest=findHoimi(pos,"normal");
+ return Boolean(nearest&&nearest.count===0);
+}
+
+// 現在のマス cur における「判定分進む」の移動マス数を算出
+function getCurrentBattleStep(pos){
+ const comp=companion(pos);
+ const twoGInfo=evaluateTwoGroupPk(pos);
+ if(isShortestHoimiMatchPos(pos)||(comp&&comp.isOneGroup))return 3;
+ if(twoGInfo&&twoGInfo.totalPk===3)return 7;
+ return battleStepCount(pos);
+}
+
+function scrollToTopRows(targetIdx){
+ const container=$("gridContainer");
+ const grid=$("rngGrid");
+ if(!container||!grid)return;
+
+ const applyScroll=()=>{
+  const targetCell=grid.querySelector(`.rng-cell[data-index="${targetIdx}"]`);
+  if(!targetCell)return;
+
+  const rowIdx=Math.floor((targetIdx-prunedStartIdx)/ROW_SIZE);
+  if(rowIdx<=1){
+   container.scrollTop=0;
+   return;
+  }
+
+  // 1つ上の行の先頭セル（rowIdx - 1 の行）の実座標に合わせることで、現在行を確実に上から2行目に配置する
+  const prevRowFirstIdx=prunedStartIdx+(rowIdx-1)*ROW_SIZE;
+  const prevRowCell=grid.querySelector(`.rng-cell[data-index="${prevRowFirstIdx}"]`);
+  const anchorCell=prevRowCell||targetCell;
+
+  const containerRect=container.getBoundingClientRect();
+  const anchorRect=anchorCell.getBoundingClientRect();
+  const desiredTop=container.scrollTop+(anchorRect.top-containerRect.top);
+  container.scrollTop=Math.max(0,Math.round(desiredTop));
+ };
+
+ applyScroll();
+ requestAnimationFrame(applyScroll);
+}
+
+function render(){
+ const fragment=document.createDocumentFragment();
+
+ for(let n=prunedStartIdx;n<=max;n++){
+  const item=rng[n-prunedStartIdx];
+  const nextItem=entry(n+1);
+  const comp=nextItem?evaluateGroup2F(nextItem):null;
+  const compSuccess=comp?comp.isOneGroup:false;
+  const twoGpk=evaluateTwoGroupPk(n);
+  const cell=document.createElement("div");
+
+  cell.className="rng-cell";
+  cell.dataset.index=n;
+  if(twoGpk&&twoGpk.totalPk===3){
+   cell.classList.add("cell-2g-pk3");
+  }else if(twoGpk&&twoGpk.totalPk===2){
+   cell.classList.add("cell-2g-pk2");
+  }else if(compSuccess){
+   cell.classList.add("cell-success");
+  }else{
+   cell.classList.add("cell-fail");
+  }
+
+  const mark=comp?(comp.isOneGroup?"○":(twoGpk?"2G":"×")):"-";
+
+  cell.innerHTML=`
+   <div class="cell-top">
+    <span class="cell-index">${n}</span>
+    <span class="cell-comp">${mark}</span>
+   </div>
+   <div class="cell-center">
+    <span class="cell-pct">${item.pct.toFixed(2)}%</span>
+   </div>
+   <div class="cell-bottom">
+    <span class="cell-enemy">1体</span>
+   </div>`;
+  fragment.appendChild(cell);
+ }
+ $("rngGrid").replaceChildren(fragment);
+ updateCountDisplay();
+ update();
+}
+
+function emoteStep(){return pt===1?0:pt;}
+
+function setHoimi(idNum,idTarget,idCard,result,isTwoG=false){
+ $(idCard).disabled=!result;
+ $(idCard).style.opacity=1;
+ $(idNum).textContent=result?result.count+"回":"探索外";
+ if(!result){
+  $(idTarget).textContent="該当位置なし";
+  $(idCard).onclick=null;
+  return;
+ }
+ if(isTwoG){
+  $(idTarget).textContent=`移動先 ${result.base} / 2F:x[${result.f2Idx}](${result.groupRoll}) / 3F:x[${result.f3Idx}](${result.kindPct.toFixed(2)}%) / 4F:x[${result.f4Idx}]`;
+ }else{
+  $(idTarget).textContent=`成功位置 2F:x[${result.judge}] / 移動先 ${result.base}`;
+ }
+ $(idCard).onclick=()=>{
+  move(result.count,{autoScroll:true});
+  notify(`ホイミ${result.count}回分移動しました`);
+ };
+}
+
+function highlightCells(){
+ document.querySelectorAll(".rng-cell").forEach(cell=>{
+  const n=Number(cell.dataset.index);
+  cell.classList.toggle("cell-current",n===cur);
+ });
+}
+
+function update(){
+ const item=entry(cur);
+ if(!item)return;
+
+ const comp=companion(cur);
+ const step=battleStepCount(cur);
+ const info2G=getTwoGroupPkInfo(cur);
+ const twoGInfo=evaluateTwoGroupPk(cur);
+
+ $("curDisplay").textContent=cur;
+ $("jumpInput").value=cur;
+ $("curPct").textContent=item.pct.toFixed(2)+"%";
+ $("enemyDisplay").textContent="1体";
+ $("enemyPct").textContent=`1F:x[${cur}] ${item.pct.toFixed(2)}%`;
+ $("moveDisplay").textContent=step+"マス";
+
+ if(comp){
+  if(comp.success){
+   $("companionDisplay").textContent="○ プラキン1";
+   $("companionDisplay").style.color="#34d399";
+   $("moveSubLabel").textContent="1Gのみ(3マス)";
+  }else if(comp.isTwoGroupOnly&&twoGInfo){
+   $("companionDisplay").textContent=`○プラキン${twoGInfo.totalPk}体`;
+   $("companionDisplay").style.color=twoGInfo.totalPk===3?COLOR_PK3:COLOR_PK2;
+   $("moveSubLabel").textContent=`2G発生(${step}マス)`;
+  }else if(comp.isTwoGroupOnly){
+   $("companionDisplay").textContent="× 2G";
+   $("companionDisplay").style.color="#fb7185";
+   $("moveSubLabel").textContent=`2G発生(${step}マス)`;
+  }else{
+   $("companionDisplay").textContent="× 3G発生";
+   $("companionDisplay").style.color="#fb7185";
+   $("moveSubLabel").textContent="3G発生(8マス)";
+  }
+  $("companionValue").textContent=`2F:x[${cur+1}] 判定値 ${comp.value}/12`;
+ }else{
+  $("companionDisplay").textContent="-";
+  $("companionValue").textContent="-";
+  $("moveSubLabel").textContent="-";
+ }
+
+ if(twoGInfo){
+  $("detail2GInfo").textContent=`現在位置は2Gプラキン計${twoGInfo.totalPk}体成立（3F:x[${cur+2}] ${twoGInfo.kindPct.toFixed(2)}% / 4F:x[${cur+3}] ${twoGInfo.countPct.toFixed(2)}% → 2G:${twoGInfo.g2Count}体 / 移動${step}マス）`;
+ }else{
+  $("detail2GInfo").textContent="";
+ }
+
+ setHoimi("normalHoimi","normalTarget","normalCard",
+  findHoimi(cur,"normal"),false);
+ setHoimi("evenHoimi","evenTarget","evenCard",
+  findHoimi(cur,"even"),false);
+ setHoimi("twoG2PkHoimi","twoG2PkTarget","twoG2PkCard",
+  findTwoGroupPkTotal(cur,2),true);
+ setHoimi("twoG3PkHoimi","twoG3PkTarget","twoG3PkCard",
+  findTwoGroupPkTotal(cur,3),true);
+
+ const canActPk=isPkSpawnPos(cur);
+ const isShortestMatch=isShortestHoimiMatchPos(cur);
+ const isOneGNoComp=Boolean(comp&&comp.isOneGroup);
+ const effectiveBattleStep=getCurrentBattleStep(cur);
+ const effectiveEmoteTotal=emoteStep()+effectiveBattleStep;
+
+ $("emoteBtn").disabled=!canActPk;
+ $("advanceBtn").disabled=!canActPk;
+
+ const scOn=$("shortcutToggle")&&$("shortcutToggle").checked;
+ $("emoteBtn").textContent=
+  `しぐさ実行 ＋${effectiveEmoteTotal}マス${scOn?" [S]":""}`;
+ $("advanceBtn").textContent=
+  `判定分進む（＋${effectiveBattleStep}マス）${scOn?" [E / Space]":""}`;
+
+ $("emoteDescription").textContent=
+  canActPk
+   ? ((isShortestMatch||isOneGNoComp)
+       ? `最短ホイミ（1Gお供なし）判定マス：PT${pt}人のしぐさ消費${emoteStep()}マス ＋ 判定移動3マス = 合計${effectiveEmoteTotal}マス移動`
+       : `PT${pt}人のしぐさ消費${emoteStep()}マス ＋ 判定移動${effectiveBattleStep}マス = 合計${effectiveEmoteTotal}マス移動`)
+   : "プラキン出現マス以外のため「しぐさ実行」「判定分進む」は無効です";
+
+ highlightCells();
+}
+
+function syncTableThenScroll(targetIdx,{needFullRender=false,autoScroll=false}={}){
+ if(needFullRender){
+  render();
+ }else{
+  update();
+ }
+ if(autoScroll){
+  scrollToTopRows(targetIdx);
+ }
+}
+
+function setPosition(target,{forceRender=false,autoScroll=false}={}){
+ const next=Math.min(MAX_INDEX,Math.max(1,target));
+ cur=next;
+
+ let needRender=forceRender;
+ if(cur<prunedStartIdx){
+  const alignedStart=Math.floor((cur-1)/ROW_SIZE)*ROW_SIZE+1;
+  rebuildFrom(alignedStart);
+  needRender=true;
+ }
+
+ // ボタン等で移動した先 cur から200マス分（cur 〜 cur + 199、上限 MAX_INDEX）展開されていない場合、200マス分展開
+ const requiredEnd=Math.min(MAX_INDEX,cur+199);
+ if(requiredEnd>max){
+  const alignedStart=Math.floor((cur-1)/ROW_SIZE)*ROW_SIZE+1;
+  if(requiredEnd-prunedStartIdx>=MAX_DISPLAY_CELLS){
+   rebuildFrom(alignedStart);
+  }
+  generate(requiredEnd);
+  syncTableThenScroll(cur,{needFullRender:true,autoScroll});
+  return;
+ }
+ if(needRender){
+  syncTableThenScroll(cur,{needFullRender:true,autoScroll});
+  return;
+ }
+ syncTableThenScroll(cur,{needFullRender:false,autoScroll});
+}
+
+function move(delta,{autoScroll=false}={}){
+ const raw=cur+delta;
+ if(raw>MAX_INDEX){notify(`最大${MAX_INDEX}マスです`,true);return;}
+ setPosition(raw,{autoScroll});
+}
+
+function parseParityPattern(raw){
+ const cleaned=raw.normalize("NFKC").trim().toLowerCase();
+ if(!cleaned)return {error:"検索する文字列（奇数: o/s/k/x/1,3,5,7,9 / 偶数: e/u/y/c/g/0,2,4,6,8 ※大文字・全角OK）を入力してください"};
+ const mapped=[];
+ for(const ch of cleaned){
+  if(ch==="o"||ch==="s"||ch==="k"||ch==="x"||ch==="1"||ch==="3"||ch==="5"||ch==="7"||ch==="9"){
+   mapped.push(1);
+  }else if(ch==="e"||ch==="u"||ch==="y"||ch==="c"||ch==="g"||ch==="0"||ch==="2"||ch==="4"||ch==="6"||ch==="8"){
+   mapped.push(0);
+  }else{
+   return {error:"使用できる文字は 奇数: o / s / k / x / 1,3,5,7,9、偶数: e / u / y / c / g / 0,2,4,6,8（大文字・小文字・全角OK、0は偶数）のみです"};
+  }
+ }
+ return {pattern:mapped};
+}
+
+// 偶奇検索：現在位置 cur から +10000 先までの範囲で、一致開始位置 + 入力文字数（shiftedPos >= cur）となる候補を近い順に返す
+function searchParityCandidates(pattern,forwardRange=10000){
+ const len=pattern.length;
+ const basePos=cur;
+ const searchStart=Math.max(1,basePos-len);
+ const searchEnd=Math.min(MAX_INDEX,basePos+forwardRange);
+ const hits=[];
+ let state=seed;
+ const ring=[];
+
+ for(let idx=1;idx<=searchEnd;idx++){
+  state=nextState(state);
+  if(idx<searchStart)continue;
+
+  const upper=Number(state>>32n);
+  const intPart=Math.floor(upper*100/MAX32_DISP);
+  ring.push((intPart%2)===1?1:0);
+  if(ring.length>len)ring.shift();
+
+  if(ring.length===len){
+   let ok=true;
+   for(let k=0;k<len;k++){
+    if(ring[k]!==pattern[k]){ok=false;break;}
+   }
+   if(ok){
+    const startPos=idx-len+1;
+    const shiftedPos=Math.min(MAX_INDEX,startPos+len);
+    if(shiftedPos>=basePos&&shiftedPos<=searchEnd){
+     hits.push({startPos,shiftedPos,len});
+    }
+   }
+  }
+ }
+
+ hits.sort((a,b)=>a.shiftedPos-b.shiftedPos);
+ return {hits,rangeStart:basePos,rangeEnd:searchEnd};
+}
+
+let searchBasePos=null;
+
+function runParitySearch(stepIndex=0){
+ const {pattern,error}=parseParityPattern($("parityInput").value);
+ if(error){
+  $("parityResult").textContent=error;
+  notify(error,true);
+  return;
+ }
+ if(stepIndex===0||searchBasePos===null){
+  searchBasePos=cur;
+ }
+ const savedCur=cur;
+ cur=searchBasePos;
+ const {hits,rangeStart,rangeEnd}=searchParityCandidates(pattern,10000);
+ cur=savedCur;
+ matchedPositions=hits;
+
+ if(matchedPositions.length===0){
+  $("parityResult").textContent=`現在位置から先の探索範囲（${rangeStart}〜${rangeEnd}マス）内に一致する位置はありませんでした。`;
+  notify("一致する候補が見つかりませんでした",true);
+  return;
+ }
+ matchCursor=((stepIndex%matchedPositions.length)+matchedPositions.length)%matchedPositions.length;
+ const hit=matchedPositions[matchCursor];
+ setPosition(hit.shiftedPos,{autoScroll:true});
+
+ const previewList=matchedPositions.slice(0,6).map(item=>{
+  const diff=item.shiftedPos-rangeStart;
+  return `${item.startPos}→${item.shiftedPos}（+${diff}）`;
+ }).join(" / ");
+
+ if(matchedPositions.length>1){
+  $("parityResult").textContent=
+   `候補 ${matchedPositions.length} 件（近い順 ${matchCursor+1}/${matchedPositions.length} 件目：一致 ${hit.startPos} ＋ ${hit.len}文字ずらし ＝ 現在 ${hit.shiftedPos}マス目）：${previewList}${matchedPositions.length>6?" ...":""}`;
+  notify(`一致 ${hit.startPos} から ${hit.len}文字分ずらした ${hit.shiftedPos}マス目へ移動しました`);
+ }else{
+  $("parityResult").textContent=`候補1件：一致 ${hit.startPos} ＋ ${hit.len}文字分ずらし ＝ 現在 ${hit.shiftedPos}マス目になりました。`;
+  notify(`一致 ${hit.startPos} から ${hit.len}文字分ずらした ${hit.shiftedPos}マス目へ移動しました`);
+ }
+}
+
+function doEmote(){
+ if(!isPkSpawnPos(cur)){
+  notify("プラキンが出現するマスではないため押せません",true);
+  return;
+ }
+ const battleStep=getCurrentBattleStep(cur);
+ const total=emoteStep()+battleStep;
+ move(total,{autoScroll:true});
+ notify(`しぐさ${emoteStep()}マス＋判定${battleStep}マス＝合計${total}マス移動`);
+}
+
+function reset(){
+ try{
+  seed=parseHexSeed($("seedInput").value);
+  rng=[];
+  prunedStartIdx=1;
+  cur=1;
+  max=INITIAL_MAX;
+  matchedPositions=[];
+  matchCursor=0;
+  searchBasePos=null;
+  $("parityResult").textContent="";
+  generate(INITIAL_MAX);
+  render();
+  $("gridContainer").scrollTop=0;
+  notify("16進シードから初期200マスを再計算しました");
+ }catch(e){
+  notify(e.message,true);
+ }
+}
+
+$("resetBtn").addEventListener("click",reset);
+$("seedInput").addEventListener("keydown",e=>{
+ if(e.key==="Enter")reset();
+});
+
+$("paritySearchBtn").addEventListener("click",()=>runParitySearch(0));
+$("parityNextBtn").addEventListener("click",()=>{
+ if(matchedPositions.length>0){
+  runParitySearch(matchCursor+1);
+ }else{
+  runParitySearch(0);
+ }
+});
+$("parityInput").addEventListener("keydown",e=>{
+ if(e.key==="Enter")runParitySearch(0);
+});
+function appendParityChar(ch){
+ const inp=$("parityInput");
+ if(!inp)return;
+ const maxLen=Number(inp.maxLength)||30;
+ if(inp.value.length>=maxLen){
+  notify(`最大${maxLen}文字まで入力できます`,true);
+  return;
+ }
+ inp.value+=ch;
+ inp.focus();
+}
+
+$("appendSonaeruBtn").addEventListener("click",()=>appendParityChar("s"));
+$("appendUkagauBtn").addEventListener("click",()=>appendParityChar("u"));
+
+$("parityClearBtn").addEventListener("click",()=>{
+ $("parityInput").value="";
+ matchedPositions=[];
+ matchCursor=0;
+ searchBasePos=null;
+ $("parityResult").textContent="";
+});
+
+$("jumpBtn").addEventListener("click",()=>{
+ const val=Number($("jumpInput").value);
+ if(!Number.isFinite(val)||val<1||val>MAX_INDEX){
+  notify(`1〜${MAX_INDEX}の数値を入力してください`,true);
+  return;
+ }
+ setPosition(Math.floor(val),{autoScroll:true});
+ notify(`${cur}マス目へ移動しました`);
+});
+
+$("jumpInput").addEventListener("keydown",e=>{
+ if(e.key==="Enter")$("jumpBtn").click();
+});
+
+document.querySelectorAll(".pt").forEach(btn=>{
+ btn.addEventListener("click",()=>{
+  pt=Number(btn.dataset.pt);
+  document.querySelectorAll(".pt").forEach(b=>{
+   b.classList.toggle("blue",b===btn);
+  });
+  update();
+ });
+});
+
+$("emoteBtn").addEventListener("click",doEmote);
+
+$("advanceBtn").addEventListener("click",()=>{
+ if(!isPkSpawnPos(cur)){
+  notify("プラキンが出現するマスではないため押せません",true);
+  return;
+ }
+ const step=getCurrentBattleStep(cur);
+ move(step,{autoScroll:true});
+ notify(`判定により${step}マス移動しました`);
+});
+
+document.querySelectorAll("[data-step]").forEach(btn=>{
+ btn.addEventListener("click",()=>move(Number(btn.dataset.step),{autoScroll:true}));
+});
+
+$("rngGrid").addEventListener("click",e=>{
+ const cell=e.target.closest(".rng-cell");
+ if(!cell)return;
+ cur=Number(cell.dataset.index);
+ syncTableThenScroll(cur,{needFullRender:false,autoScroll:true});
+});
+
+$("scrollCurrent").addEventListener("click",()=>{
+ syncTableThenScroll(cur,{needFullRender:false,autoScroll:true});
+});
+
+document.querySelectorAll("[data-expand]").forEach(btn=>{
+ btn.addEventListener("click",()=>{
+  const addCount=Number(btn.dataset.expand);
+  const displayLimit=Math.min(MAX_INDEX,prunedStartIdx+MAX_DISPLAY_CELLS-1);
+  if(max>=displayLimit){
+   notify(`同時表示上限（${MAX_DISPLAY_CELLS}マス）に達しています。不要な列を消去してください`,true);
+   return;
+  }
+  const target=Math.min(displayLimit,max+addCount);
+  generate(target);
+  render();
+  notify(`${addCount}マス展開しました（現在 ${prunedStartIdx}〜${max}マス）`);
+ });
+});
+
+$("pruneUsedRowsBtn").addEventListener("click",()=>{
+ const completedRows=Math.floor((cur-1)/ROW_SIZE);
+ const newStartIdx=completedRows*ROW_SIZE+1;
+ if(newStartIdx<=prunedStartIdx){
+  notify("新しく消去できる過ぎた列はありません",true);
+  return;
+ }
+ const dropCount=newStartIdx-prunedStartIdx;
+ const clearedRows=Math.floor(dropCount/ROW_SIZE);
+
+ if(dropCount>=rng.length){
+  rng=[];
+  prunedStartIdx=newStartIdx;
+  generate(Math.max(newStartIdx,max));
+ }else{
+  rng.splice(0,dropCount);
+  prunedStartIdx=newStartIdx;
+ }
+
+ render();
+ $("gridContainer").scrollTop=0;
+ notify(`過ぎた${clearedRows}列（〜${prunedStartIdx-1}マス）を消去・メモリ解放しました`);
+});
+
+$("shortcutToggle").addEventListener("change",()=>{
+ const enabled=$("shortcutToggle").checked;
+ $("shortcutHint").textContent=enabled
+  ?"（ON: E/Space=判定, S=しぐさ, H/F=最短, G=偶数, D=プラキン2, T=プラキン3）"
+  :"（OFF）";
+ document.querySelectorAll(".shortcut-badge").forEach(el=>{
+  el.classList.toggle("hidden",!enabled);
+ });
+ update();
+ notify(enabled?"ショートカットキーを有効にしました":"ショートカットキーを無効にしました");
+});
+
+document.addEventListener("keydown",e=>{
+ if(e.target.matches("input[type=text],input[type=number],textarea"))return;
+ if(e.ctrlKey||e.metaKey||e.altKey)return;
+
+ const arrowKeys={
+  ArrowLeft:-1,
+  ArrowRight:1,
+  ArrowUp:-10,
+  ArrowDown:10
+ };
+ if(Object.hasOwn(arrowKeys,e.key)){
+  e.preventDefault();
+  move(arrowKeys[e.key],{autoScroll:true});
+  return;
+ }
+
+ if(!$("shortcutToggle").checked)return;
+
+ const key=e.key.toLowerCase();
+ if(key==="e"||e.code==="Space"||e.key===" "){
+  e.preventDefault();
+  if(!$("advanceBtn").disabled)$("advanceBtn").click();
+ }else if(key==="s"){
+  e.preventDefault();
+  if(!$("emoteBtn").disabled)$("emoteBtn").click();
+ }else if(key==="h"||key==="f"){
+  e.preventDefault();
+  if(!$("normalCard").disabled)$("normalCard").click();
+ }else if(key==="g"){
+  e.preventDefault();
+  if(!$("evenCard").disabled)$("evenCard").click();
+ }else if(key==="d"){
+  e.preventDefault();
+  if(!$("twoG2PkCard").disabled)$("twoG2PkCard").click();
+ }else if(key==="t"){
+  e.preventDefault();
+  if(!$("twoG3PkCard").disabled)$("twoG3PkCard").click();
+ }
+});
+
+generate(INITIAL_MAX);
+render();
+
+})();
+</script>
+</body>
+</html>
