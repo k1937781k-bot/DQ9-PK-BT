@@ -483,19 +483,17 @@ function companion(n){
  return {value:g.dispVal,groupCount:g.groupCount,success:g.isOneGroup,isTwoGroupOnly:g.isTwoGroupOnly};
 }
 
-// 判定分進む：1G => 3マス / 2Gで合計2体 => 6マス / 2Gで合計3体 => 7マス（プラキン出現マスは 8 にならないよう保護）
+// 判定分進む：1G => 3マス / 2Gプラキン計2体 => 7マス / 2Gプラキン計3体 => 8マス
 function battleStepCount(n){
  const comp=companion(n);
  if(!comp||comp.isOneGroup)return 3;
  if(comp.isTwoGroupOnly){
   const info2G=getTwoGroupPkInfo(n);
-  if(info2G&&info2G.totalPk===3)return 7;
-  return 6;
+  if(info2G&&info2G.totalPk===3)return 8;
+  return 7;
  }
- if(isOneGroupPk(n))return 3;
  return 8;
 }
-
 // 2G時の合計プラキン数（1G:1体 + 2G:1..2体 = 計2体 or 計3体）を2G判定成立時に算出
 function getTwoGroupPkInfo(pos){
  const f2=entry(pos+1);
@@ -594,9 +592,7 @@ function isShortestHoimiMatchPos(pos){
 // 現在のマス cur における「判定分進む」の移動マス数を算出
 function getCurrentBattleStep(pos){
  const comp=companion(pos);
- const twoGInfo=evaluateTwoGroupPk(pos);
  if(isShortestHoimiMatchPos(pos)||(comp&&comp.isOneGroup))return 3;
- if(twoGInfo&&twoGInfo.totalPk===3)return 7;
  return battleStepCount(pos);
 }
 
@@ -726,7 +722,7 @@ function update(){
   }else if(comp.isTwoGroupOnly&&twoGInfo){
    $("companionDisplay").textContent=`○プラキン${twoGInfo.totalPk}体`;
    $("companionDisplay").style.color=twoGInfo.totalPk===3?COLOR_PK3:COLOR_PK2;
-   $("moveSubLabel").textContent=`2G発生(${step}マス)`;
+   $("moveSubLabel").textContent=`2Gプラキン(${step}マス)`;
   }else if(comp.isTwoGroupOnly){
    $("companionDisplay").textContent="× 2G";
    $("companionDisplay").style.color="#fb7185";
